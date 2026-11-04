@@ -134,6 +134,34 @@ textarea{background:#FFFFFF;box-shadow:var(--shadow);border-color:transparent}
 .btn{background:#FFFFFF}
 .fyi-box{background:#FFFFFF}
 .lock{background:var(--bg)}
+.tabs{flex:1 1 100%;display:flex;gap:4px;margin:2px 0 -12px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{border:0;background:none;padding:9px 12px 11px;color:var(--muted);font-weight:600;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tab:hover{color:var(--ink)}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.tab .ls{display:none}
+.tab .cnt{display:inline-block;min-width:18px;padding:1px 6px;margin-left:4px;border-radius:999px;background:var(--accent-chip);color:var(--accent-chip-ink);font-size:11px;text-align:center}
+.wins{font-weight:600;font-size:12px;color:var(--soft);background:var(--accent-soft);padding:4px 10px;border-radius:999px;white-space:nowrap}
+.shell.solo nav{display:none}
+.shell.solo main{max-width:980px;margin:0 auto}
+.tophead{margin:12px 16px 4px;padding:12px 14px;border-radius:12px;background:var(--bg)}
+.th-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.th-num{font-weight:700;font-size:15px}
+.tophead .note{margin-top:6px}
+.rates{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px;font-size:12.5px;color:var(--soft)}
+.rates b{font-weight:600;color:var(--muted)}
+.pad{padding:0 16px}
+.more{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;border:1px solid var(--line2);background:#FFFFFF;color:var(--soft);font-weight:500;font-size:12.5px;cursor:pointer}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.chip.warn:hover{border-color:var(--hot);color:var(--hot)}
+.chip .s{color:var(--muted);font-size:11px}
+.panel{padding:12px 14px;border-radius:12px;background:#FFFFFF;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px}
+.panel[hidden]{display:none}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.panel select{font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line2);border-radius:8px;background:#fff;color:var(--ink)}
+.ok{color:var(--ok);font-weight:600}
+@media (max-width: 760px){ .shell.solo main{display:flex} header{gap:8px 12px} .wins{margin-left:auto} .meta{display:none} .tabs{order:5;margin-bottom:-12px} .tab{padding:8px 10px 10px} .tab .lf{display:none} .tab .ls{display:inline} }
 .lock{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
 .lock[hidden]{display:none}
 .lock form{width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px}
@@ -157,7 +185,9 @@ textarea{background:#FFFFFF;box-shadow:var(--shadow);border-color:transparent}
 <header>
   <h1 id="title">Today</h1>
   <div class="timeline" id="timeline" aria-hidden="true"><div class="rail"></div></div>
+  <span class="wins" id="wins"></span>
   <span class="meta" id="meta">Loading</span>
+  <div class="tabs" id="tabs" role="tablist"></div>
 </header>
 <div class="shell" id="shell">
   <nav id="list" aria-label="Follow-ups"></nav>
@@ -237,17 +267,44 @@ async function load(){
   }
 }
 
+
+const STAGE_HOOK = ""; // Zap "Today page deal update -> Pipedrive" (Lost / Move stage). Buttons stay hidden until set.
+const STAGES = [
+  ["Leads", [[6,"New"],[7,"Attempting Contact"],[32,"Contact Made / Appt Set"],[35,"Refinance Proposal Sent"],[26,"App Requested"]]],
+  ["Applications", [[13,"Application Received"],[14,"Processing App"],[15,"Pre-Approved (Active)"],[47,"Pre-Approved (Nurture)"],[16,"Credit Repair"]]],
+  ["Live Loans", [[18,"Setup"],[19,"Disclosures"],[20,"Submitted to UW"],[21,"Initial UW Approval"],[34,"Docs Requested"],[46,"Docs Logged"],[22,"CD"],[23,"CTC"],[24,"Docs To Title"],[25,"Funded"]]],
+  ["Nurture", [[27,"Active Nurture"],[28,"Long-Term"],[30,"App 90 Day Nurture"],[33,"Refi Watch"],[31,"Graveyard"]]]
+];
+const LOST_REASONS = ["Went with another lender","Not ready / bad timing","Didn't qualify","No response","Other"];
+const TABS = [["today","Today"],["agents","Agents"],["refi","Refi"],["score","<span class=\"lf\">Scoreboard</span><span class=\"ls\">Score</span>"]];
+let TAB = (() => { try { const t = localStorage.getItem("today-tab"); return TABS.some(x=>x[0]===t) ? t : "today"; } catch(e){ return "today"; } })();
+const tabOf = g => g.tab || "today";
+let ALLGROUPS = [];
+
 function build(){
   const d = DATA;
   document.title = "Today · " + (d.dateShort || "");
   document.getElementById("title").textContent = d.dateShort ? d.dateShort.replace(/^(\w+)\s/, "$1, ") : (d.dateLabel || "Today");
-  ITEMS = [];
   const g0 = gone();
-  (d.groups||[]).forEach(g => { g.items = g.items.filter(it => !g0[it.key]); });
-  d.groups = (d.groups||[]).filter(g => g.items.length);
-  (d.groups||[]).forEach(g => g.items.forEach(it => ITEMS.push(Object.assign({group:g.title}, it))));
-  if (SEL !== LEADS_KEY && (!SEL || !ITEMS.find(i => i.key === SEL))) SEL = nextOpen(null);
-  renderTimeline(); renderList(); renderDetail(); renderMeta();
+  ALLGROUPS = (d.groups||[]).map(g => Object.assign({}, g, {items: (g.items||[]).filter(it => !g0[it.key])})).filter(g => g.items.length);
+  ITEMS = [];
+  ALLGROUPS.filter(g => tabOf(g) === TAB).forEach(g => g.items.forEach(it => ITEMS.push(Object.assign({group:g.title}, it))));
+  if (!SEL || !ITEMS.find(i => i.key === SEL)) SEL = nextOpen(null);
+  renderTabs(); renderTimeline(); renderList(); renderDetail(); renderMeta();
+}
+function setTab(t){
+  TAB = t; try { localStorage.setItem("today-tab", t); } catch(e){}
+  SEL = null; document.getElementById("shell").classList.remove("detail"); build(); window.scrollTo(0,0);
+}
+function tabCount(t){
+  const logged = store();
+  return ALLGROUPS.filter(g => tabOf(g) === t).reduce((a,g) => a + g.items.filter(i => !i.fyi && !logged[i.key]).length, 0);
+}
+function renderTabs(){
+  const el = document.getElementById("tabs");
+  el.innerHTML = TABS.map(([id,label]) => { const n = id === "score" ? 0 : tabCount(id);
+    return `<button type="button" class="tab ${TAB===id?"on":""}" data-tab="${id}">${label}${n?` <span class="cnt">${n}</span>`:""}</button>`; }).join("");
+  el.querySelectorAll(".tab").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
 }
 
 function nextOpen(afterKey){
@@ -260,13 +317,28 @@ function nextOpen(afterKey){
   return (later || open[0]).key;
 }
 
+/* wins: Pipedrive count at refresh time + sends on this device since then */
+function localSince(filterFn){
+  const gen = DATA.generatedAt || 0, logged = store();
+  return Object.entries(logged).filter(([k,t]) => t > gen && (!filterFn || filterFn(k))).length;
+}
+function winsNow(){
+  const w = DATA.wins || {}, loc = localSince();
+  const today = (w.isToday === false ? 0 : (w.today||0)) + loc;
+  return { today, streak: (w.streakBefore||0) + (today > 0 ? 1 : 0), week: (w.week||0) + loc };
+}
+function agentWeekNow(){
+  const a = DATA.agentWeek || {goal:7, count:0, names:[]};
+  const agentKeys = new Set(ALLGROUPS.filter(g => tabOf(g)==="agents").flatMap(g => g.items.map(i => i.key)));
+  return { goal: a.goal || 7, count: (a.count||0) + localSince(k => agentKeys.has(k)), names: a.names || [] };
+}
 function renderMeta(){
-  const logged = store();
-  const all = ITEMS.filter(i => !i.fyi), left = all.filter(i => !logged[i.key]).length;
-  const parts = [];
-  if (all.length) parts.push(left + " to send");
-  parts.push("updated " + (d => d ? d.replace(/^\w+\s/, "") : "")(DATA.updatedLabel));
-  document.getElementById("meta").textContent = parts.join(" · ");
+  const w = winsNow();
+  const fire = w.today ? `🔥 ${w.today} sent today` : "0 sent today";
+  const streak = w.streak > 1 ? ` · ${w.streak}-day streak` : "";
+  document.getElementById("wins").textContent = fire + streak;
+  document.getElementById("meta").textContent = "updated " + (DATA.updatedLabel ? DATA.updatedLabel.replace(/^\w+\s/, "") : "");
+  renderTabs();
 }
 
 function renderTimeline(){
@@ -292,54 +364,145 @@ function sideHTML(cls){
   const s = sched.length ? sched.map(x => `<div class="li"><span class="t">${esc(x.time)}</span><span>${esc(x.title)}${x.phone?` <span class="num">${esc(x.phone)}</span>`:""}${x.sub?`<span class="s" style="display:block">${esc(x.sub)}</span>`:""}</span></div>`).join("") : '<div class="empty">Nothing on the calendar.</div>';
   const t = todos.length ? todos.map(x => `<div class="todo"><span>${esc(x.title)}</span><span class="tg ${x.late?"late":""}">${esc(x.tag||"")}</span></div>`).join("") : '<div class="empty">No TickTick tasks due.</div>';
   const logged = store();
-  const bds = (DATA.groups||[]).filter(g => /birthday/i.test(g.title)).flatMap(g => g.items).filter(x => !logged[x.key]);
-  const b = bds.length ? bds.map(x => `<button type="button" class="bd ${logged[x.key]?"sent":""}" data-key="${esc(x.key)}"><span class="bn">🎂 ${esc(x.name)}</span><span class="tg">${logged[x.key] ? "sent" : (x.phone ? fmt(x.phone) : "no phone")}</span></button>`).join("") : '<div class="empty">No client birthdays today.</div>';
+  const bds = ALLGROUPS.filter(g => /birthday/i.test(g.title)).flatMap(g => g.items).filter(x => !logged[x.key]);
+  const b = bds.length ? bds.map(x => `<button type="button" class="bd" data-key="${esc(x.key)}"><span class="bn">🎂 ${esc(x.name)}</span><span class="tg">${x.phone ? fmt(x.phone) : "no phone"}</span></button>`).join("") : '<div class="empty">No client birthdays today.</div>';
   return `<div class="side ${cls}"><section><h3 class="lbl">Schedule</h3>${s}</section><section><h3 class="lbl">To-dos · TickTick</h3>${t}<h3 class="lbl gap">Birthdays today</h3>${b}</section></div>`;
 }
-
 function wireBd(root){
-  root.querySelectorAll(".bd").forEach(b => b.addEventListener("click", () => { SEL = b.dataset.key; renderList(); renderDetail(); document.getElementById("shell").classList.add("detail"); window.scrollTo(0,0); }));
+  root.querySelectorAll(".bd").forEach(b => b.addEventListener("click", () => { if (TAB !== "today") { TAB = "today"; } SEL = b.dataset.key; build(); document.getElementById("shell").classList.add("detail"); window.scrollTo(0,0); }));
+}
+
+function barHTML(n, goal){ const p = goal ? Math.min(100, Math.round(n/goal*100)) : 0; return `<div class="bar"><i class="${n>=goal?"hi":p<50?"lo":""}" style="width:${p}%"></i></div>`; }
+function listTopHTML(){
+  if (TAB === "today") return `<div class="mobile-top">${sideHTML("")}</div>`;
+  if (TAB === "agents") { const a = agentWeekNow();
+    return `<div class="tophead"><div class="th-row"><span class="lbl">Agent touches this week</span><span class="th-num">${a.count} / ${a.goal}</span></div>${barHTML(a.count, a.goal)}<p class="note">${a.count >= a.goal ? "Goal hit! Anything extra is gravy." : "Calls, texts and notes on your Realtor Partners count."}</p></div>`; }
+  if (TAB === "refi") { const m = DATA.market;
+    return m ? `<div class="tophead"><div class="th-row"><span class="lbl">Optimal Blue ${esc(m.asOf||"")}</span></div><div class="rates">${(m.rates||[]).map(r => `<span><b>${esc(r.n)}</b> ${Number(r.v).toFixed(2)}%</span>`).join("")}</div><p class="note">Trigger: client rate ${esc(m.trigger||"0.75")}% or more above market.</p></div>` : ""; }
+  return "";
+}
+function emptyHTML(){
+  if (TAB === "agents") return `<div class="gh">All caught up</div><div class="pad empty">No agents due for a touch today. Nice!</div>`;
+  if (TAB === "refi") return `<div class="gh">Nothing to chase</div><div class="pad empty">Nobody's over your refi trigger right now. When rates drop, they'll show up here.</div>`;
+  if (DATA.weekday === false) return `<div class="gh">Weekend mode</div><div class="pad empty">Just your schedule and to-dos today. Enjoy it!</div>`;
+  return `<div class="gh">No follow-ups due</div><div class="pad empty">Everyone's been touched. Nice work!</div>`;
 }
 
 function renderList(){
-  const nav = document.getElementById("list"), logged = store();
-  let html = `<div class="mobile-top">${sideHTML("")}</div>` + leadsRowHTML();
-  if (!ITEMS.length) html += `<div class="gh">${DATA.weekday===false ? "Weekend mode" : "No follow-ups due"}</div><div style="padding:0 16px" class="empty">${DATA.weekday===false ? "Just your schedule and to-dos today. Enjoy it!" : "Everyone's been touched. Nice work!"}</div>`;
-  const anyLeft = (DATA.groups||[]).some(g => g.items.some(i => !logged[i.key]));
-  if (ITEMS.length && !anyLeft) html += `<div class="gh">All caught up</div><div style="padding:0 16px" class="empty">Everything on today's list is sent. Nice work!</div>`;
-  (DATA.groups||[]).forEach(g => {
+  const nav = document.getElementById("list"), logged = store(), shell = document.getElementById("shell");
+  shell.classList.toggle("solo", TAB === "score");
+  if (TAB === "score") { nav.innerHTML = ""; return; }
+  let html = listTopHTML();
+  const groups = ALLGROUPS.filter(g => tabOf(g) === TAB && !(TAB==="today" && /birthday/i.test(g.title) && false));
+  const anyLeft = groups.some(g => g.items.some(i => !logged[i.key]));
+  if (!anyLeft) html += emptyHTML();
+  groups.forEach(g => {
     const vis = g.items.filter(i => !logged[i.key]);
     if (!vis.length) return;
     const n = vis.filter(i => !i.fyi).length;
-    html += `<div class="gh">${esc(g.title)} · ${n}</div>`;
+    html += `<div class="gh">${esc(g.title)}${n?` · ${n}`:""}</div>`;
     vis.forEach(it => {
-      const done = false;
-      const dot = done ? "ok" : it.fyi ? "fyi" : (it.flag || "");
-      const age = done ? "done" : (it.flag === "bday" ? "🎂" : shortAge(it.why));
-      html += `<button type="button" class="row ${it.key===SEL?"sel":""} ${done?"done":""}" data-key="${esc(it.key)}">
+      const dot = it.fyi ? "fyi" : (it.flag || "");
+      const age = it.flag === "bday" ? "🎂" : shortAge(it.why);
+      html += `<button type="button" class="row ${it.key===SEL?"sel":""}" data-key="${esc(it.key)}">
         <span class="dot ${dot}"></span>
-        <span style="min-width:0"><span class="nm">${esc(it.name)}</span><span class="sub">${esc(done ? "Logged in Pipedrive" : it.ctx)}</span></span>
-        <span class="age ${it.flag==="hot"&&!done?"hot":""}">${esc(age)}</span></button>`;
+        <span style="min-width:0"><span class="nm">${esc(it.name)}</span><span class="sub">${esc(it.ctx)}</span></span>
+        <span class="age ${it.flag==="hot"?"hot":""}">${esc(age)}</span></button>`;
     });
   });
   nav.innerHTML = html;
   wireBd(nav);
-  nav.querySelectorAll(".row").forEach(b => b.addEventListener("click", () => { SEL = b.dataset.key; renderList(); renderDetail(); document.getElementById("shell").classList.add("detail"); window.scrollTo(0,0); }));
+  nav.querySelectorAll(".row").forEach(b => b.addEventListener("click", () => { SEL = b.dataset.key; renderList(); renderDetail(); shell.classList.add("detail"); window.scrollTo(0,0); }));
+}
+
+function scoreHTML(){
+  const w = winsNow(), a = agentWeekNow();
+  return `<div class="dh"><div><h2>Scoreboard</h2><div class="info">How the week is going</div></div></div>
+  <div class="kpis">
+    <div class="kpi"><div class="k">Sent today</div><div class="v">${w.today ? "🔥 " : ""}${w.today}</div><div class="s">texts and calls logged from the board</div></div>
+    <div class="kpi"><div class="k">Streak</div><div class="v">${w.streak} <span class="s">${w.streak===1?"day":"days"}</span></div><div class="s">weekdays in a row with at least one send</div></div>
+    <div class="kpi"><div class="k">This week</div><div class="v">${w.week}</div><div class="s">sends since Monday</div></div>
+  </div>
+  <section><h3 class="lbl">Agent touches this week</h3>
+    <div class="kpi"><div class="v">${a.count} <span class="s">/ ${a.goal}</span></div>${barHTML(a.count, a.goal)}
+    <div class="s" style="margin-top:8px">${a.names.length ? esc(a.names.join(", ")) : "No realtor touches logged yet this week."}</div></div></section>
+  <div class="hr"></div>` + leadsHTML().replace('<div class="dh"><div><h2>', '<div class="dh"><div><h2 style="font-size:16px">');
+}
+
+/* ---------- card actions ---------- */
+function postNote(it, note){
+  const body = new URLSearchParams({ deal_id: String(it.dealId||""), person_id: String(it.personId||""), note, name: it.name, kind: it.dealId ? "deal" : "birthday" });
+  return fetch(DISMISS_HOOK, {method:"POST", mode:"no-cors", body});
+}
+function mdy(d){ return (d.getMonth()+1)+"/"+d.getDate()+"/"+d.getFullYear(); }
+function hideAndNext(it){
+  const o = gone(); o[it.key] = Date.now(); saveGone(o);
+  const next = nextOpen(it.key); build(); SEL = next && next !== it.key ? next : nextOpen(null); renderList(); renderDetail(); renderMeta();
+}
+function moreHTML(it){
+  const deal = !!it.dealId, bday = it.flag === "bday";
+  let h = `<div class="more">`;
+  if (!bday) h += `<button type="button" class="chip" data-act="snooze">⏰ Snooze</button>`;
+  h += `<button type="button" class="chip" data-act="note">✎ Note</button>`;
+  if (!it.fyi && it.phone) h += `<button type="button" class="chip" data-act="called">📞 Called instead</button>`;
+  if (STAGE_HOOK && deal && !bday) h += `<button type="button" class="chip" data-act="stage">➜ Move stage</button><button type="button" class="chip warn" data-act="lost">Mark lost</button>`;
+  h += `</div><div class="panel" id="actpanel" hidden></div>`;
+  return h;
+}
+function wireMore(it){
+  const panel = document.getElementById("actpanel");
+  const show = html => { panel.innerHTML = html; panel.hidden = false; };
+  document.querySelectorAll(".more .chip").forEach(c => c.addEventListener("click", () => {
+    const act = c.dataset.act;
+    if (act === "snooze") {
+      show(`<div class="lbl">Snooze until</div><div class="opts">${[[3,"3 days"],[7,"1 week"],[14,"2 weeks"],[30,"1 month"]].map(([n,l]) => { const d = new Date(Date.now()+n*864e5); return `<button type="button" class="chip" data-days="${n}">${l} <span class="s">${(d.getMonth()+1)+"/"+d.getDate()}</span></button>`; }).join("")}</div>`);
+      panel.querySelectorAll("[data-days]").forEach(b => b.addEventListener("click", async () => {
+        const d = new Date(Date.now() + (+b.dataset.days)*864e5); b.disabled = true; b.textContent = "Snoozing...";
+        try { await postNote(it, "Snoozed from Today page until " + mdy(d) + "."); hideAndNext(it); } catch(e){ b.disabled = false; b.textContent = "Didn't go through, tap again"; }
+      }));
+    } else if (act === "note") {
+      show(`<label class="lbl" for="qn">Quick note to Pipedrive</label><textarea id="qn" style="min-height:80px" placeholder="What happened?"></textarea><div class="acts"><button type="button" class="btn pri" id="qnsave">Save note</button></div>`);
+      const save = document.getElementById("qnsave");
+      save.addEventListener("click", async () => { const v = document.getElementById("qn").value.trim(); if (!v) return;
+        save.disabled = true; save.textContent = "Saving...";
+        try { await postNote(it, v + " (from Today page)"); panel.innerHTML = `<div class="ok">Saved to Pipedrive ✓</div>`; } catch(e){ save.disabled = false; save.textContent = "Didn't save, tap again"; } });
+    } else if (act === "called") {
+      logSend(it, "Call: ", "Called from the Today page.");
+    } else if (act === "stage") {
+      show(`<label class="lbl" for="stg">Move to</label><select id="stg">${STAGES.map(([p, ss]) => `<optgroup label="${p}">${ss.map(([id,n]) => `<option value="${id}" ${n===it.stage?"selected":""}>${n}</option>`).join("")}</optgroup>`).join("")}</select><div class="acts"><button type="button" class="btn pri" id="stgsave">Move it</button></div>`);
+      const b = document.getElementById("stgsave");
+      b.addEventListener("click", async () => { b.disabled = true; b.textContent = "Moving...";
+        try { await fetch(STAGE_HOOK, {method:"POST", mode:"no-cors", body: new URLSearchParams({deal_id:String(it.dealId), action:"stage", stage_id: document.getElementById("stg").value, name: it.name})}); hideAndNext(it); }
+        catch(e){ b.disabled = false; b.textContent = "Didn't go through, tap again"; } });
+    } else if (act === "lost") {
+      show(`<div class="lbl">Why'd it die?</div><div class="opts">${LOST_REASONS.map(r => `<button type="button" class="chip" data-r="${esc(r)}">${esc(r)}</button>`).join("")}</div>`);
+      panel.querySelectorAll("[data-r]").forEach(b => b.addEventListener("click", async () => { b.disabled = true; b.textContent = "Marking lost...";
+        try { await fetch(STAGE_HOOK, {method:"POST", mode:"no-cors", body: new URLSearchParams({deal_id:String(it.dealId), action:"lost", status:"lost", lost_reason: b.dataset.r, name: it.name})}); hideAndNext(it); }
+        catch(e){ b.disabled = false; b.textContent = "Didn't go through, tap again"; } }));
+    }
+  }));
+}
+async function logSend(it, prefix, note, btn){
+  if (btn) { btn.disabled = true; btn.textContent = "Logging..."; }
+  const body = new URLSearchParams({ deal_id:String(it.dealId||""), person_id:String(it.personId||""),
+    subject:(prefix || (it.flag==="bday"?"Birthday text: ":it.phone?"Text: ":"Email: "))+it.name+" (Today page)", note, due_date:todayISO(), name:it.name });
+  try {
+    await fetch(HOOK, {method:"POST", mode:"no-cors", body});
+    const o = store(); o[it.key] = Date.now(); saveStore(o);
+    SEL = nextOpen(it.key); renderList(); renderDetail(); renderMeta();
+  } catch(e) { if (btn) { btn.disabled = false; btn.textContent = "Didn't send, tap again"; } }
 }
 
 function renderDetail(){
-  const main = document.getElementById("detail"), logged = store();
-  if (SEL === LEADS_KEY) {
-    main.innerHTML = `<button type="button" class="back" id="back">‹ All follow-ups</button>` + leadsHTML() + `<div class="hr"></div>` + sideHTML("desk");
-    wireBd(main); wireLeads(main);
-    document.getElementById("back").addEventListener("click", () => { document.getElementById("shell").classList.remove("detail"); });
-    return;
-  }
+  const main = document.getElementById("detail"), logged = store(), shell = document.getElementById("shell");
+  if (TAB === "score") { main.innerHTML = scoreHTML(); wireLeads(main); return; }
   const it = ITEMS.find(i => i.key === SEL);
-  if (!it) { main.innerHTML = sideHTML("desk"); wireBd(main); return; }
+  const side = TAB === "today" ? `<div class="hr"></div>` + sideHTML("desk") : "";
+  if (!it) { main.innerHTML = TAB === "today" ? sideHTML("desk") : `<div class="empty" style="padding-top:8px">${TAB==="refi"?"No refi candidates right now.":"No agents due today."}</div>`; wireBd(main); return; }
   const done = !!logged[it.key];
   const contact = it.phone ? fmt(it.phone) : (it.email || "");
-  let h = `<button type="button" class="back" id="back">‹ All follow-ups</button>
+  const backLbl = TAB === "agents" ? "‹ Agents" : TAB === "refi" ? "‹ Refi" : "‹ All follow-ups";
+  let h = `<button type="button" class="back" id="back">${backLbl}</button>
     <div class="dh"><div><h2>${esc(it.name)}</h2><div class="info">${esc([contact, it.stage, it.group].filter(Boolean).join(" · "))}</div></div>
     <span class="right"><span class="pill ${it.flag==="hot"?"hot":""}">${esc(it.why)}</span><button type="button" class="xbtn" id="dismiss" title="Remove from board">✕ Remove</button></span></div>
     <p class="ctx">${esc(it.ctx)}</p>`;
@@ -351,23 +514,18 @@ function renderDetail(){
       <button type="button" class="btn" id="copy">Copy</button>
       <button type="button" class="btn log" id="log" ${done?"disabled":""}>${done?"Logged in Pipedrive":"Sent, log it · next"}</button></div>`;
   }
-  h += `<div class="hr"></div>` + sideHTML("desk");
-  main.innerHTML = h; wireBd(main);
-  document.getElementById("back").addEventListener("click", () => { document.getElementById("shell").classList.remove("detail"); });
+  h += moreHTML(it) + side;
+  main.innerHTML = h; wireBd(main); wireMore(it);
+  document.getElementById("back").addEventListener("click", () => { shell.classList.remove("detail"); });
   const xb = document.getElementById("dismiss");
   xb.addEventListener("click", async () => {
     const bday = it.flag === "bday";
     if (!xb.classList.contains("arm")) { xb.classList.add("arm"); xb.textContent = bday ? "Tap again: no more birthday texts" : "Tap again to remove"; setTimeout(() => { if (xb.isConnected && xb.disabled !== true) { xb.classList.remove("arm"); xb.textContent = "✕ Remove"; } }, 4000); return; }
     xb.disabled = true; xb.textContent = "Removing...";
-    const d = new Date(), ds = (d.getMonth()+1)+"/"+d.getDate()+"/"+d.getFullYear();
+    const ds = mdy(new Date());
     const note = bday ? "Skip birthday text. Removed from the Today page on "+ds+". Don't show on future boards." : "Skipped from Today page on "+ds+". Off the board until the next follow-up is due.";
-    const body = new URLSearchParams({ deal_id: bday ? "" : String(it.dealId||""), person_id: String(it.personId||""), note, name: it.name, kind: bday ? "birthday" : "deal" });
-    try {
-      await fetch(DISMISS_HOOK, {method:"POST", mode:"no-cors", body});
-      const o = gone(); o[it.key] = Date.now(); saveGone(o);
-      const next = nextOpen(it.key);
-      build(); SEL = next && next !== it.key ? next : nextOpen(null); renderList(); renderDetail(); renderMeta();
-    } catch(e) { xb.disabled = false; xb.classList.remove("arm"); xb.textContent = "Didn't go through, tap again"; }
+    try { await postNote(it, note); hideAndNext(it); }
+    catch(e) { xb.disabled = false; xb.classList.remove("arm"); xb.textContent = "Didn't go through, tap again"; }
   });
   if (it.fyi) { document.getElementById("skip").addEventListener("click", () => { SEL = nextOpen(it.key); renderList(); renderDetail(); }); return; }
   const ta = document.getElementById("msg"), send = document.getElementById("send"), copy = document.getElementById("copy"), log = document.getElementById("log");
@@ -376,19 +534,8 @@ function renderDetail(){
   copy.addEventListener("click", () => {
     navigator.clipboard.writeText(ta.value).then(() => { copy.textContent="Copied"; setTimeout(()=>copy.textContent="Copy",1500); }).catch(() => { ta.focus(); ta.select(); });
   });
-  log.addEventListener("click", async () => {
-    if (log.disabled) return;
-    log.disabled = true; log.textContent = "Logging...";
-    const body = new URLSearchParams({ deal_id:String(it.dealId||""), person_id:String(it.personId||""),
-      subject:(it.flag==="bday"?"Birthday text: ":it.phone?"Text: ":"Email: ")+it.name+" (Today page)", note:ta.value, due_date:todayISO(), name:it.name });
-    try {
-      await fetch(HOOK, {method:"POST", mode:"no-cors", body});
-      const o = store(); o[it.key] = Date.now(); saveStore(o);
-      SEL = nextOpen(it.key); renderList(); renderDetail(); renderMeta();
-    } catch(e) { log.disabled = false; log.textContent = "Didn't send, tap again"; }
-  });
+  log.addEventListener("click", () => { if (!log.disabled) logSend(it, null, ta.value, log); });
 }
-
 
 /* ---------- Leads section ---------- */
 const LEADS_KEY = "__leads";
