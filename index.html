@@ -103,6 +103,29 @@ textarea{width:100%;min-height:150px;resize:vertical;padding:12px;border:1px sol
   textarea{min-height:230px}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+.lead-row .dot{background:var(--accent);border-radius:2px}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.kpi{padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+.kpi .k{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.kpi .v{font-size:22px;font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+.kpi .s{color:var(--muted);font-size:12px}
+.bar{height:6px;border-radius:3px;background:var(--track);overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.bar i.lo{background:var(--warm)} .bar i.hi{background:var(--ok)}
+.comm{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.comm .in{display:flex;align-items:center;border:1px solid var(--line2);border-radius:8px;background:var(--bg);padding:0 10px}
+.comm .in span{color:var(--muted)}
+.comm input{width:110px;padding:8px 6px;border:0;background:transparent;color:var(--ink);font:inherit;font-size:16px;outline:none}
+.ltbl{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.ltbl th{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+.ltbl th:first-child,.ltbl td:first-child{text-align:left}
+.ltbl td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+.ltbl td.pb{width:34%} .ltbl td.pb .bar{margin-top:0}
+.ltbl tr.cur td{background:var(--accent-soft);font-weight:600}
+.ltbl tr.fut td{color:var(--muted)}
+.ltbl tfoot td{font-weight:700;border-bottom:0}
+.note{color:var(--muted);font-size:12px;margin:0}
+@media (max-width: 760px){ .kpis{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .ltbl td.pb{display:none} .ltbl th.pb{display:none} }
 .lock{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
 .lock[hidden]{display:none}
 .lock form{width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px}
@@ -215,7 +238,7 @@ function build(){
   (d.groups||[]).forEach(g => { g.items = g.items.filter(it => !g0[it.key]); });
   d.groups = (d.groups||[]).filter(g => g.items.length);
   (d.groups||[]).forEach(g => g.items.forEach(it => ITEMS.push(Object.assign({group:g.title}, it))));
-  if (!SEL || !ITEMS.find(i => i.key === SEL)) SEL = nextOpen(null);
+  if (SEL !== LEADS_KEY && (!SEL || !ITEMS.find(i => i.key === SEL))) SEL = nextOpen(null);
   renderTimeline(); renderList(); renderDetail(); renderMeta();
 }
 
@@ -272,7 +295,7 @@ function wireBd(root){
 
 function renderList(){
   const nav = document.getElementById("list"), logged = store();
-  let html = `<div class="mobile-top">${sideHTML("")}</div>`;
+  let html = `<div class="mobile-top">${sideHTML("")}</div>` + leadsRowHTML();
   if (!ITEMS.length) html += `<div class="gh">${DATA.weekday===false ? "Weekend mode" : "No follow-ups due"}</div><div style="padding:0 16px" class="empty">${DATA.weekday===false ? "Just your schedule and to-dos today. Enjoy it!" : "Everyone's been touched. Nice work!"}</div>`;
   const anyLeft = (DATA.groups||[]).some(g => g.items.some(i => !logged[i.key]));
   if (ITEMS.length && !anyLeft) html += `<div class="gh">All caught up</div><div style="padding:0 16px" class="empty">Everything on today's list is sent. Nice work!</div>`;
@@ -298,6 +321,12 @@ function renderList(){
 
 function renderDetail(){
   const main = document.getElementById("detail"), logged = store();
+  if (SEL === LEADS_KEY) {
+    main.innerHTML = `<button type="button" class="back" id="back">‹ All follow-ups</button>` + leadsHTML() + `<div class="hr"></div>` + sideHTML("desk");
+    wireBd(main); wireLeads(main);
+    document.getElementById("back").addEventListener("click", () => { document.getElementById("shell").classList.remove("detail"); });
+    return;
+  }
   const it = ITEMS.find(i => i.key === SEL);
   if (!it) { main.innerHTML = sideHTML("desk"); wireBd(main); return; }
   const done = !!logged[it.key];
@@ -350,6 +379,79 @@ function renderDetail(){
       SEL = nextOpen(it.key); renderList(); renderDetail(); renderMeta();
     } catch(e) { log.disabled = false; log.textContent = "Didn't send, tap again"; }
   });
+}
+
+
+/* ---------- Leads section ---------- */
+const LEADS_KEY = "__leads";
+const money = n => "$" + Math.round(n).toLocaleString("en-US");
+const pct = (a,b) => b ? Math.round(a/b*100) : 0;
+function getComm(){ try { return localStorage.getItem("lead-commission") || ""; } catch(e){ return ""; } }
+function setComm(v){ try { localStorage.setItem("lead-commission", v); } catch(e){} }
+function leadStats(){
+  const L = DATA && DATA.leads; if (!L || !L.months) return null;
+  const now = new Date(), yr = L.year || now.getFullYear();
+  const cm = yr === now.getFullYear() ? now.getMonth() : 11;           // 0-based current month
+  const dim = new Date(yr, cm+1, 0).getDate(), frac = yr === now.getFullYear() ? now.getDate()/dim : 1;
+  const ms = L.months.map((m,i) => Object.assign({i}, m));
+  const cur = ms[cm] || {leads:0,target:0};
+  const ytdLeads = ms.slice(0, cm+1).reduce((a,m)=>a+(m.leads||0),0);
+  const fullTgt = ms.slice(0, cm).reduce((a,m)=>a+(m.target||0),0);
+  const paceTgt = fullTgt + (cur.target||0)*frac;
+  const yearTgt = ms.reduce((a,m)=>a+(m.target||0),0);
+  const y = L.ytd || {};
+  return {L, ms, cm, cur, curPace:(cur.target||0)*frac, ytdLeads, paceTgt, yearTgt, won:y.won||0, open:y.open||0, lost:y.lost||0};
+}
+function barCls(p){ return p >= 100 ? "hi" : p < 80 ? "lo" : ""; }
+function leadsRowHTML(){
+  const st = leadStats(); if (!st) return "";
+  const p = pct(st.ytdLeads, st.paceTgt);
+  return `<div class="gh">Scoreboard</div><button type="button" class="row lead-row ${SEL===LEADS_KEY?"sel":""}" data-key="${LEADS_KEY}">
+    <span class="dot"></span><span style="min-width:0"><span class="nm">📈 Leads ${st.L.year}</span><span class="sub">${st.ytdLeads} YTD · ${st.cur.leads||0} this month</span></span>
+    <span class="age">${p}%</span></button>`;
+}
+function leadsHTML(){
+  const st = leadStats();
+  if (!st) return `<div class="empty">Lead numbers show up after the next refresh.</div>`;
+  const {ms, cm, cur} = st, mp = pct(cur.leads||0, cur.target), yp = pct(st.ytdLeads, st.paceTgt);
+  const conv = st.ytdLeads ? (st.won/st.ytdLeads*100).toFixed(1) : "0.0";
+  const mname = cur.m || "";
+  const rows = ms.map(m => {
+    const fut = m.i > cm, p = fut ? 0 : pct(m.leads||0, m.target);
+    return `<tr class="${m.i===cm?"cur":""} ${fut?"fut":""}"><td>${esc(m.m)}</td><td>${fut?"":(m.leads||0)}</td><td>${m.target||0}</td><td>${fut?"":p+"%"}</td><td>${fut?"":(m.won||0)}</td><td class="pb">${fut?"":`<div class="bar"><i class="${barCls(p)}" style="width:${Math.min(100,p)}%"></i></div>`}</td></tr>`;
+  }).join("");
+  return `<div class="dh"><div><h2>Leads ${st.L.year}</h2><div class="info">New deals added in Pipedrive (all pipelines except TLC Onboarding) · as of ${esc(st.L.asOf||"")}</div></div></div>
+  <div class="kpis">
+    <div class="kpi"><div class="k">${esc(mname)} so far</div><div class="v">${cur.leads||0} <span class="s">/ ${cur.target||0}</span></div><div class="s">${mp}% of the month's goal</div><div class="bar"><i class="${barCls(pct(cur.leads||0, st.curPace))}" style="width:${Math.min(100,mp)}%"></i></div></div>
+    <div class="kpi"><div class="k">YTD vs pace</div><div class="v">${st.ytdLeads} <span class="s">/ ${Math.round(st.paceTgt)}</span></div><div class="s">${yp}% to goal through today · year goal ${st.yearTgt}</div><div class="bar"><i class="${barCls(yp)}" style="width:${Math.min(100,yp)}%"></i></div></div>
+    <div class="kpi"><div class="k">Conversion</div><div class="v">${conv}%</div><div class="s">${st.won} won · ${st.open} open · ${st.lost} lost</div></div>
+  </div>
+  <section><h3 class="lbl">What's a lead worth?</h3>
+    <div class="comm"><label class="in" for="comm"><span>$</span><input id="comm" type="text" inputmode="decimal" placeholder="avg commission" value="${esc(getComm())}" autocomplete="off"></label>
+    <span class="s">per funded loan</span></div>
+    <div class="kpis" style="margin-top:12px;grid-template-columns:repeat(2,minmax(0,1fr))">
+      <div class="kpi"><div class="k">$ per lead</div><div class="v" id="perlead">–</div><div class="s">won × commission ÷ leads</div></div>
+      <div class="kpi"><div class="k">Commission YTD</div><div class="v" id="commytd">–</div><div class="s">${st.won} won × commission</div></div>
+    </div>
+    <p class="note" style="margin-top:8px">Recent months still have open deals in process, so these numbers climb as those close.</p>
+  </section>
+  <section><h3 class="lbl">Month by month</h3>
+  <table class="ltbl"><thead><tr><th>Month</th><th>Leads</th><th>Target</th><th>% to goal</th><th>Won</th><th class="pb"></th></tr></thead>
+  <tbody>${rows}</tbody>
+  <tfoot><tr><td>YTD</td><td>${st.ytdLeads}</td><td>${Math.round(st.paceTgt)}</td><td>${yp}%</td><td>${st.won}</td><td class="pb"></td></tr></tfoot></table>
+  <p class="note" style="margin-top:6px">YTD target counts full months plus ${esc(mname)} prorated to today.</p></section>`;
+}
+function wireLeads(root){
+  const inp = root.querySelector("#comm"); if (!inp) return;
+  const st = leadStats();
+  const calc = () => {
+    const c = parseFloat(String(inp.value).replace(/[^0-9.]/g, ""));
+    const ok = st && c > 0 && st.ytdLeads > 0;
+    root.querySelector("#perlead").textContent = ok ? money(st.won*c/st.ytdLeads) : "–";
+    root.querySelector("#commytd").textContent = ok ? money(st.won*c) : "–";
+  };
+  inp.addEventListener("input", () => { setComm(inp.value); calc(); });
+  calc();
 }
 
 document.getElementById("lockform").addEventListener("submit", unlock);
