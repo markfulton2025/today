@@ -192,6 +192,8 @@ async function unlock(ev){
 }
 async function load(){
   try {
+    const hk = (location.hash.match(/[#&]k=([^&]+)/) || [])[1];
+    if (!KEY && hk) { try { KEY = await deriveKey(decodeURIComponent(hk)); await rememberKey(KEY); } catch(e){ KEY = null; } }
     if (!KEY) KEY = await savedKey();
     if (!KEY) { showLock(""); return; }
     const env = await fetchEnv();
