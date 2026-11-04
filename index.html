@@ -8,18 +8,16 @@
 <meta name="robots" content="noindex">
 <title>Mark's Today</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
 :root{
-  --bg:#FFFFFF; --panel:#F9FAFB; --ink:#111827; --muted:#6B7280; --soft:#374151; --line:#E5E7EB; --line2:#D1D5DB;
-  --accent:#0F766E; --accent-ink:#FFFFFF; --accent-soft:#F0FDFA; --accent-line:#99F6E4; --accent-chip:#CCFBF1; --accent-chip-ink:#115E59;
-  --hot:#DC2626; --hot-soft:#FEE2E2; --hot-ink:#B91C1C; --warm:#D97706; --ok:#10B981; --track:#F3F4F6;
-  --sans:"IBM Plex Sans", system-ui, -apple-system, sans-serif; --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --bg:#F4F6FA; --panel:#FFFFFF; --ink:#0F172A; --muted:#64748B; --soft:#334155; --line:#E2E8F0; --line2:#CBD5E1;
+  --accent:#4F46E5; --accent-ink:#FFFFFF; --accent-soft:#EEF2FF; --accent-line:#C7D2FE; --accent-chip:#E0E7FF; --accent-chip-ink:#3730A3;
+  --hot:#E11D48; --hot-soft:#FFE4E6; --hot-ink:#BE123C; --warm:#F59E0B; --ok:#10B981; --track:#E8ECF3;
+  --card:#FFFFFF; --shadow:0 1px 2px rgba(15,23,42,.05),0 4px 14px rgba(15,23,42,.06);
+  --sans:"Inter", system-ui, -apple-system, sans-serif; --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme:light;
 }
-@media (prefers-color-scheme: dark){:root{
-  --bg:#0F1214; --panel:#151A1D; --ink:#E5E9EC; --muted:#8C969E; --soft:#C4CBD1; --line:#232A2F; --line2:#2E363C;
-  --accent:#2DD4BF; --accent-ink:#06201D; --accent-soft:#11272A; --accent-line:#1E4A47; --accent-chip:#134E4A; --accent-chip-ink:#99F6E4;
-  --hot:#F87171; --hot-soft:#3A1A1A; --hot-ink:#FCA5A5; --warm:#FBBF24; --ok:#34D399; --track:#1C2226; color-scheme:dark}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.45}
 body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -126,6 +124,16 @@ textarea{width:100%;min-height:150px;resize:vertical;padding:12px;border:1px sol
 .ltbl tfoot td{font-weight:700;border-bottom:0}
 .note{color:var(--muted);font-size:12px;margin:0}
 @media (max-width: 760px){ .kpis{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .ltbl td.pb{display:none} .ltbl th.pb{display:none} }
+header{background:#FFFFFF}
+nav{background:#FFFFFF}
+.row:hover{background:#F8FAFC}
+.kpi{background:var(--card);border-color:transparent;box-shadow:var(--shadow);border-radius:14px}
+.comm .in{background:var(--card);box-shadow:var(--shadow)}
+.bar{height:7px;border-radius:4px}
+textarea{background:#FFFFFF;box-shadow:var(--shadow);border-color:transparent}
+.btn{background:#FFFFFF}
+.fyi-box{background:#FFFFFF}
+.lock{background:var(--bg)}
 .lock{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
 .lock[hidden]{display:none}
 .lock form{width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px}
