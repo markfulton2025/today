@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Today">
+<meta name="robots" content="noindex">
+<title>Mark's Today</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+:root{
+  --bg:#FFFFFF; --panel:#F9FAFB; --ink:#111827; --muted:#6B7280; --soft:#374151; --line:#E5E7EB; --line2:#D1D5DB;
+  --accent:#0F766E; --accent-ink:#FFFFFF; --accent-soft:#F0FDFA; --accent-line:#99F6E4; --accent-chip:#CCFBF1; --accent-chip-ink:#115E59;
+  --hot:#DC2626; --hot-soft:#FEE2E2; --hot-ink:#B91C1C; --warm:#D97706; --ok:#10B981; --track:#F3F4F6;
+  --sans:"IBM Plex Sans", system-ui, -apple-system, sans-serif; --mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#0F1214; --panel:#151A1D; --ink:#E5E9EC; --muted:#8C969E; --soft:#C4CBD1; --line:#232A2F; --line2:#2E363C;
+  --accent:#2DD4BF; --accent-ink:#06201D; --accent-soft:#11272A; --accent-line:#1E4A47; --accent-chip:#134E4A; --accent-chip-ink:#99F6E4;
+  --hot:#F87171; --hot-soft:#3A1A1A; --hot-ink:#FCA5A5; --warm:#FBBF24; --ok:#34D399; --track:#1C2226; color-scheme:dark}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:13px;line-height:1.45}
+body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+button,a,textarea{font:inherit}
+button:focus-visible,a:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding:12px max(20px,env(safe-area-inset-right,0px)) 12px max(20px,env(safe-area-inset-left,0px));border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
+header h1{margin:0;font-size:17px;font-weight:700;white-space:nowrap}
+.meta{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}
+.timeline{flex:1 1 420px;min-width:0;position:relative;height:24px}
+.timeline .rail{position:absolute;left:0;right:0;top:9px;height:6px;border-radius:3px;background:var(--track)}
+.timeline .now{position:absolute;top:2px;width:2px;height:20px;background:var(--hot);border-radius:1px}
+.timeline .ev{position:absolute;top:0;height:24px;padding:3px 7px;border-radius:5px;background:var(--accent-chip);color:var(--accent-chip-ink);font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+.timeline .ev.next{background:var(--accent);color:var(--accent-ink)}
+
+.shell{display:flex;min-height:calc(100vh - 58px)}
+nav{flex:0 0 360px;border-right:1px solid var(--line);overflow-y:auto;padding-bottom:24px}
+.gh{padding:14px 16px 6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.row{display:grid;grid-template-columns:8px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;padding:9px 16px 9px 13px;border:0;border-left:3px solid transparent;background:transparent;color:var(--ink);text-align:left;cursor:pointer}
+.row:hover{background:var(--panel)}
+.row.sel{background:var(--accent-soft);border-left-color:var(--accent)}
+.row .dot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.row .dot.hot{background:var(--hot)} .row .dot.warm{background:var(--warm)} .row .dot.ok{background:var(--ok)} .row .dot.bday{background:#EC4899} .row .dot.fyi{background:transparent;border:1.5px solid var(--muted)}
+.row .nm{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .sub{display:block;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .age{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}
+.row .age.hot{color:var(--hot)}
+.row.done .nm{text-decoration:line-through;color:var(--muted)}
+
+main{flex:1 1 auto;min-width:0;padding:22px 28px 40px;display:flex;flex-direction:column;gap:16px;max-width:860px}
+.dh{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:flex-start}
+.dh h2{margin:0;font-size:18px;font-weight:700;text-wrap:balance}
+.dh .info{color:var(--muted)}
+.pill{padding:4px 10px;border-radius:999px;background:var(--panel);color:var(--soft);font-weight:600;font-size:11.5px;white-space:nowrap}
+.xbtn{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid var(--line2);background:var(--bg);color:var(--muted);font-weight:600;font-size:11.5px;cursor:pointer;white-space:nowrap}
+.xbtn:hover{color:var(--hot);border-color:var(--hot)}
+.xbtn.arm{background:var(--hot-soft);color:var(--hot-ink);border-color:var(--hot)}
+.dh .right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pill.hot{background:var(--hot-soft);color:var(--hot-ink)}
+.ctx{margin:0;color:var(--soft);max-width:68ch}
+.lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+textarea{width:100%;min-height:150px;resize:vertical;padding:12px;border:1px solid var(--line2);border-radius:10px;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5}
+.acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{padding:9px 16px;border-radius:8px;border:1px solid var(--line2);background:var(--bg);color:var(--soft);cursor:pointer;text-decoration:none;font-weight:500}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.log{margin-left:auto;background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent);font-weight:600}
+.btn.log[disabled]{cursor:default;opacity:.8}
+.num{font-family:var(--mono);font-size:11.5px;color:var(--muted);user-select:all}
+.fyi-box{padding:12px 14px;border:1px dashed var(--line2);border-radius:10px;color:var(--muted)}
+.hr{height:1px;background:var(--line)}
+.side{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.side h3{margin:0 0 8px}
+.li{display:grid;grid-template-columns:76px minmax(0,1fr);gap:2px 10px;padding:4px 0}
+.li .t{font-family:var(--mono);font-size:11px;color:var(--accent);padding-top:1px}
+.li .s{color:var(--muted)}
+.todo{display:flex;justify-content:space-between;gap:10px;padding:4px 0}
+.todo .tg{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}
+.todo .tg.late{color:var(--hot)}
+.bd{display:flex;justify-content:space-between;gap:10px;padding:4px 0;cursor:pointer;border:0;background:none;color:var(--ink);width:100%;text-align:left}
+.bd:hover .bn{text-decoration:underline}
+.bd .tg{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}
+.bd.sent .bn{text-decoration:line-through;color:var(--muted)}
+.lbl.gap{margin-top:18px}
+.empty{color:var(--muted)}
+.back{display:none}
+.mobile-top{display:none}
+.err{color:var(--hot)}
+
+@media (max-width: 760px){
+  .shell{display:block}
+  nav{border-right:0}
+  main{padding:16px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px))}
+  .shell.detail nav{display:none}
+  .shell:not(.detail) main{display:none}
+  .back{display:inline-flex;align-self:flex-start;padding:6px 0;border:0;background:none;color:var(--accent);font-weight:600;cursor:pointer}
+  .side{grid-template-columns:minmax(0,1fr)}
+  .mobile-top{display:block;padding:12px 16px 4px}
+  .mobile-top .side{gap:14px}
+  main .side.desk{display:none}
+  .timeline{display:none}
+  textarea{min-height:230px}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+.lock{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px}
+.lock[hidden]{display:none}
+.lock form{width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px}
+.lock h2{margin:0;font-size:20px}
+.lock p{margin:0;color:var(--muted)}
+.lock input{width:100%;padding:12px;border:1px solid var(--line2);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;font-size:16px}
+.lock .msg{color:var(--hot);min-height:1.2em}
+</style>
+</head>
+<body>
+<div class="lock" id="lock" hidden>
+  <form id="lockform" autocomplete="on">
+    <h2>Mark's Today</h2>
+    <p>Enter your password once on this device.</p>
+    <input type="text" name="username" value="Mark" autocomplete="username" hidden>
+    <input type="password" id="pw" name="password" autocomplete="current-password" placeholder="Password" required>
+    <button type="submit" class="btn pri" id="unlockbtn">Unlock</button>
+    <div class="msg" id="lockmsg" role="alert"></div>
+  </form>
+</div>
+<header>
+  <h1 id="title">Today</h1>
+  <div class="timeline" id="timeline" aria-hidden="true"><div class="rail"></div></div>
+  <span class="meta" id="meta">Loading</span>
+</header>
+<div class="shell" id="shell">
+  <nav id="list" aria-label="Follow-ups"></nav>
+  <main id="detail"></main>
+</div>
+<script>
+const HOOK = "https://hooks.zapier.com/hooks/catch/24058204/49mhor2/";
+const DISMISS_HOOK = "https://hooks.zapier.com/hooks/catch/24058204/491v69e/";
+function gone(){ try { return JSON.parse(localStorage.getItem("dismissed")||"{}"); } catch(e){ return {}; } }
+function saveGone(o){ try { const cut=Date.now()-7*864e5; Object.keys(o).forEach(k=>{ if(o[k]<cut) delete o[k]; }); localStorage.setItem("dismissed", JSON.stringify(o)); } catch(e){} }
+let DATA = null, stamp = "", ITEMS = [], SEL = null;
+
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt = p => String(p).replace(/(\d{3})(\d{3})(\d{4})$/, "$1-$2-$3");
+function todayISO(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function store(){ try { return JSON.parse(localStorage.getItem("logged-"+todayISO())||"{}"); } catch(e){ return {}; } }
+function saveStore(o){ try { localStorage.setItem("logged-"+todayISO(), JSON.stringify(o)); } catch(e){} }
+function firstName(n){ return String(n).split(/[ ,&]/)[0]; }
+function shortAge(w){ const m = String(w||"").match(/(\d+)\s*d(ays)?\b/); if (m) return m[1]+"d"; const r = String(w||"").match(/since\s+(\d+\/\d+)/i); if (r) return r[1]; const l = String(w||"").match(/touch\s+(\d+\/\d+)/i); return l ? l[1] : ""; }
+function parseTime(t){ const m = String(t).match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i); if(!m) return null; let h=+m[1]%12; if(m[3].toUpperCase()==="PM") h+=12; return h+ (+m[2])/60; }
+
+const SALT = "OaGayBd3ylRhZIj9eEz2gw==";
+const b64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+let KEY = null;
+async function deriveKey(pass){
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2", salt:b64(SALT), iterations:200000, hash:"SHA-256"}, base, {name:"AES-GCM", length:256}, true, ["decrypt"]);
+}
+async function savedKey(){
+  try { const raw = localStorage.getItem("today-key"); if (!raw) return null; return await crypto.subtle.importKey("raw", b64(raw), "AES-GCM", true, ["decrypt"]); } catch(e){ return null; }
+}
+async function rememberKey(k){
+  try { const raw = new Uint8Array(await crypto.subtle.exportKey("raw", k)); localStorage.setItem("today-key", btoa(String.fromCharCode(...raw))); } catch(e){}
+}
+async function decryptWith(k, env){
+  const pt = await crypto.subtle.decrypt({name:"AES-GCM", iv:b64(env.iv)}, k, b64(env.ct));
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+async function fetchEnv(){
+  const r = await fetch("data.enc.json?t="+Date.now(), {cache:"no-store"});
+  if (!r.ok) throw new Error("HTTP "+r.status);
+  return r.json();
+}
+function showLock(msg){
+  const l = document.getElementById("lock"); l.hidden = false;
+  document.getElementById("lockmsg").textContent = msg || "";
+  setTimeout(() => { try { document.getElementById("pw").focus(); } catch(e){} }, 50);
+}
+async function unlock(ev){
+  ev.preventDefault();
+  const btn = document.getElementById("unlockbtn"), pw = document.getElementById("pw");
+  btn.disabled = true; btn.textContent = "Unlocking...";
+  try {
+    const env = await fetchEnv();
+    const k = await deriveKey(pw.value);
+    let d;
+    try { d = await decryptWith(k, env); } catch(e){ btn.disabled = false; btn.textContent = "Unlock"; showLock("That's not it. Try again."); pw.select(); return; }
+    KEY = k; await rememberKey(k);
+    document.getElementById("lock").hidden = true; pw.value = "";
+    DATA = d; stamp = env.stamp || ""; build();
+  } catch(e) { showLock("Couldn't reach the page. Check your connection and try again."); }
+  btn.disabled = false; btn.textContent = "Unlock";
+}
+async function load(){
+  try {
+    if (!KEY) KEY = await savedKey();
+    if (!KEY) { showLock(""); return; }
+    const env = await fetchEnv();
+    if (env.stamp && env.stamp === stamp && DATA) return;
+    let d;
+    try { d = await decryptWith(KEY, env); } catch(e){ KEY = null; try { localStorage.removeItem("today-key"); } catch(_){} showLock("Password changed. Enter the new one."); return; }
+    DATA = d; stamp = env.stamp || ""; build();
+  } catch(e) {
+    if (!DATA) document.getElementById("meta").innerHTML = '<span class="err">Could not load today\'s list. Pull down to retry.</span>';
+  }
+}
+
+function build(){
+  const d = DATA;
+  document.title = "Today · " + (d.dateShort || "");
+  document.getElementById("title").textContent = d.dateShort ? d.dateShort.replace(/^(\w+)\s/, "$1, ") : (d.dateLabel || "Today");
+  ITEMS = [];
+  const g0 = gone();
+  (d.groups||[]).forEach(g => { g.items = g.items.filter(it => !g0[it.key]); });
+  d.groups = (d.groups||[]).filter(g => g.items.length);
+  (d.groups||[]).forEach(g => g.items.forEach(it => ITEMS.push(Object.assign({group:g.title}, it))));
+  if (!SEL || !ITEMS.find(i => i.key === SEL)) SEL = nextOpen(null);
+  renderTimeline(); renderList(); renderDetail(); renderMeta();
+}
+
+function nextOpen(afterKey){
+  const logged = store();
+  const open = ITEMS.filter(i => !i.fyi && !logged[i.key]);
+  if (!open.length) return ITEMS.length ? ITEMS[0].key : null;
+  if (!afterKey) return open[0].key;
+  const idx = ITEMS.findIndex(i => i.key === afterKey);
+  const later = ITEMS.slice(idx+1).find(i => !i.fyi && !logged[i.key]);
+  return (later || open[0]).key;
+}
+
+function renderMeta(){
+  const logged = store();
+  const all = ITEMS.filter(i => !i.fyi), left = all.filter(i => !logged[i.key]).length;
+  const parts = [];
+  if (all.length) parts.push(left + " to send");
+  parts.push("updated " + (d => d ? d.replace(/^\w+\s/, "") : "")(DATA.updatedLabel));
+  document.getElementById("meta").textContent = parts.join(" · ");
+}
+
+function renderTimeline(){
+  const tl = document.getElementById("timeline");
+  tl.innerHTML = '<div class="rail"></div>';
+  const START = 7, END = 19, now = new Date(), nh = now.getHours() + now.getMinutes()/60;
+  const isToday = DATA.dateShort && DATA.dateShort.endsWith((now.getMonth()+1)+"/"+now.getDate());
+  const evs = (DATA.schedule||[]).map(s => ({s, h: parseTime(s.time)})).filter(x => x.h !== null);
+  let nextMarked = false;
+  evs.forEach(x => {
+    const el = document.createElement("div");
+    const pct = Math.min(96, Math.max(0, (x.h - START) / (END - START) * 100));
+    el.className = "ev"; el.style.left = pct + "%";
+    if (!nextMarked && (!isToday || x.h >= nh)) { el.classList.add("next"); nextMarked = true; }
+    el.textContent = x.s.time.replace(/\s?(AM|PM)/i, "") + " " + x.s.title.replace(/^Call:\s*/, "").split(/[&,]/)[0].trim();
+    tl.appendChild(el);
+  });
+  if (isToday && nh > START && nh < END) { const n = document.createElement("div"); n.className = "now"; n.style.left = ((nh-START)/(END-START)*100)+"%"; tl.appendChild(n); }
+}
+
+function sideHTML(cls){
+  const sched = DATA.schedule || [], todos = DATA.todos || [];
+  const s = sched.length ? sched.map(x => `<div class="li"><span class="t">${esc(x.time)}</span><span>${esc(x.title)}${x.phone?` <span class="num">${esc(x.phone)}</span>`:""}${x.sub?`<span class="s" style="display:block">${esc(x.sub)}</span>`:""}</span></div>`).join("") : '<div class="empty">Nothing on the calendar.</div>';
+  const t = todos.length ? todos.map(x => `<div class="todo"><span>${esc(x.title)}</span><span class="tg ${x.late?"late":""}">${esc(x.tag||"")}</span></div>`).join("") : '<div class="empty">No TickTick tasks due.</div>';
+  const logged = store();
+  const bds = (DATA.groups||[]).filter(g => /birthday/i.test(g.title)).flatMap(g => g.items).filter(x => !logged[x.key]);
+  const b = bds.length ? bds.map(x => `<button type="button" class="bd ${logged[x.key]?"sent":""}" data-key="${esc(x.key)}"><span class="bn">🎂 ${esc(x.name)}</span><span class="tg">${logged[x.key] ? "sent" : (x.phone ? fmt(x.phone) : "no phone")}</span></button>`).join("") : '<div class="empty">No client birthdays today.</div>';
+  return `<div class="side ${cls}"><section><h3 class="lbl">Schedule</h3>${s}</section><section><h3 class="lbl">To-dos · TickTick</h3>${t}<h3 class="lbl gap">Birthdays today</h3>${b}</section></div>`;
+}
+
+function wireBd(root){
+  root.querySelectorAll(".bd").forEach(b => b.addEventListener("click", () => { SEL = b.dataset.key; renderList(); renderDetail(); document.getElementById("shell").classList.add("detail"); window.scrollTo(0,0); }));
+}
+
+function renderList(){
+  const nav = document.getElementById("list"), logged = store();
+  let html = `<div class="mobile-top">${sideHTML("")}</div>`;
+  if (!ITEMS.length) html += `<div class="gh">${DATA.weekday===false ? "Weekend mode" : "No follow-ups due"}</div><div style="padding:0 16px" class="empty">${DATA.weekday===false ? "Just your schedule and to-dos today. Enjoy it!" : "Everyone's been touched. Nice work!"}</div>`;
+  const anyLeft = (DATA.groups||[]).some(g => g.items.some(i => !logged[i.key]));
+  if (ITEMS.length && !anyLeft) html += `<div class="gh">All caught up</div><div style="padding:0 16px" class="empty">Everything on today's list is sent. Nice work!</div>`;
+  (DATA.groups||[]).forEach(g => {
+    const vis = g.items.filter(i => !logged[i.key]);
+    if (!vis.length) return;
+    const n = vis.filter(i => !i.fyi).length;
+    html += `<div class="gh">${esc(g.title)} · ${n}</div>`;
+    vis.forEach(it => {
+      const done = false;
+      const dot = done ? "ok" : it.fyi ? "fyi" : (it.flag || "");
+      const age = done ? "done" : (it.flag === "bday" ? "🎂" : shortAge(it.why));
+      html += `<button type="button" class="row ${it.key===SEL?"sel":""} ${done?"done":""}" data-key="${esc(it.key)}">
+        <span class="dot ${dot}"></span>
+        <span style="min-width:0"><span class="nm">${esc(it.name)}</span><span class="sub">${esc(done ? "Logged in Pipedrive" : it.ctx)}</span></span>
+        <span class="age ${it.flag==="hot"&&!done?"hot":""}">${esc(age)}</span></button>`;
+    });
+  });
+  nav.innerHTML = html;
+  wireBd(nav);
+  nav.querySelectorAll(".row").forEach(b => b.addEventListener("click", () => { SEL = b.dataset.key; renderList(); renderDetail(); document.getElementById("shell").classList.add("detail"); window.scrollTo(0,0); }));
+}
+
+function renderDetail(){
+  const main = document.getElementById("detail"), logged = store();
+  const it = ITEMS.find(i => i.key === SEL);
+  if (!it) { main.innerHTML = sideHTML("desk"); wireBd(main); return; }
+  const done = !!logged[it.key];
+  const contact = it.phone ? fmt(it.phone) : (it.email || "");
+  let h = `<button type="button" class="back" id="back">‹ All follow-ups</button>
+    <div class="dh"><div><h2>${esc(it.name)}</h2><div class="info">${esc([contact, it.stage, it.group].filter(Boolean).join(" · "))}</div></div>
+    <span class="right"><span class="pill ${it.flag==="hot"?"hot":""}">${esc(it.why)}</span><button type="button" class="xbtn" id="dismiss" title="Remove from board">✕ Remove</button></span></div>
+    <p class="ctx">${esc(it.ctx)}</p>`;
+  if (it.fyi) {
+    h += `<div class="fyi-box">Nothing to send right now. This one's just so you know.</div><div class="acts"><button type="button" class="btn log" id="skip">Next ›</button></div>`;
+  } else {
+    h += `<label class="lbl" for="msg">Message</label><textarea id="msg">${esc(it.text)}</textarea>
+      <div class="acts"><a class="btn pri" id="send" href="#">${it.phone ? "Text " : "Email "}${esc(firstName(it.name))}</a>
+      <button type="button" class="btn" id="copy">Copy</button>
+      <button type="button" class="btn log" id="log" ${done?"disabled":""}>${done?"Logged in Pipedrive":"Sent, log it · next"}</button></div>`;
+  }
+  h += `<div class="hr"></div>` + sideHTML("desk");
+  main.innerHTML = h; wireBd(main);
+  document.getElementById("back").addEventListener("click", () => { document.getElementById("shell").classList.remove("detail"); });
+  const xb = document.getElementById("dismiss");
+  xb.addEventListener("click", async () => {
+    const bday = it.flag === "bday";
+    if (!xb.classList.contains("arm")) { xb.classList.add("arm"); xb.textContent = bday ? "Tap again: no more birthday texts" : "Tap again to remove"; setTimeout(() => { if (xb.isConnected && xb.disabled !== true) { xb.classList.remove("arm"); xb.textContent = "✕ Remove"; } }, 4000); return; }
+    xb.disabled = true; xb.textContent = "Removing...";
+    const d = new Date(), ds = (d.getMonth()+1)+"/"+d.getDate()+"/"+d.getFullYear();
+    const note = bday ? "Skip birthday text. Removed from the Today page on "+ds+". Don't show on future boards." : "Skipped from Today page on "+ds+". Off the board until the next follow-up is due.";
+    const body = new URLSearchParams({ deal_id: bday ? "" : String(it.dealId||""), person_id: String(it.personId||""), note, name: it.name, kind: bday ? "birthday" : "deal" });
+    try {
+      await fetch(DISMISS_HOOK, {method:"POST", mode:"no-cors", body});
+      const o = gone(); o[it.key] = Date.now(); saveGone(o);
+      const next = nextOpen(it.key);
+      build(); SEL = next && next !== it.key ? next : nextOpen(null); renderList(); renderDetail(); renderMeta();
+    } catch(e) { xb.disabled = false; xb.classList.remove("arm"); xb.textContent = "Didn't go through, tap again"; }
+  });
+  if (it.fyi) { document.getElementById("skip").addEventListener("click", () => { SEL = nextOpen(it.key); renderList(); renderDetail(); }); return; }
+  const ta = document.getElementById("msg"), send = document.getElementById("send"), copy = document.getElementById("copy"), log = document.getElementById("log");
+  const upd = () => { send.href = it.phone ? `sms:+1${it.phone}?&body=${encodeURIComponent(ta.value)}` : `mailto:${it.email}?subject=${encodeURIComponent(it.subject||"")}&body=${encodeURIComponent(ta.value)}`; };
+  upd(); ta.addEventListener("input", () => { upd(); it.text = ta.value; });
+  copy.addEventListener("click", () => {
+    navigator.clipboard.writeText(ta.value).then(() => { copy.textContent="Copied"; setTimeout(()=>copy.textContent="Copy",1500); }).catch(() => { ta.focus(); ta.select(); });
+  });
+  log.addEventListener("click", async () => {
+    if (log.disabled) return;
+    log.disabled = true; log.textContent = "Logging...";
+    const body = new URLSearchParams({ deal_id:String(it.dealId||""), person_id:String(it.personId||""),
+      subject:(it.flag==="bday"?"Birthday text: ":it.phone?"Text: ":"Email: ")+it.name+" (Today page)", note:ta.value, due_date:todayISO(), name:it.name });
+    try {
+      await fetch(HOOK, {method:"POST", mode:"no-cors", body});
+      const o = store(); o[it.key] = Date.now(); saveStore(o);
+      SEL = nextOpen(it.key); renderList(); renderDetail(); renderMeta();
+    } catch(e) { log.disabled = false; log.textContent = "Didn't send, tap again"; }
+  });
+}
+
+document.getElementById("lockform").addEventListener("submit", unlock);
+load();
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") load(); });
+setInterval(load, 10*60*1000);
+</script>
+</body>
+</html>
