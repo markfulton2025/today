@@ -48,7 +48,7 @@ def main(folder, target):
     try:
         listing = list_folder(folder)
     except Exception as e:
-        # Folder not shared or Drive hiccup: skip quietly, try again next run.
+        # Folder not shared or Drive hiccup: skip quietly and try again next run.
         note(f"could not list folder: {e}")
         return out(updated="false", stamp="")
     files = {n: i for n, i in listing.items() if re.fullmatch(r"enc-\d{12,14}\.json", n)}
