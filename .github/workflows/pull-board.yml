@@ -25,7 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      FOLDER_ID: ${{ vars.TODAY_DRIVE_FOLDER }}
+      # Drive folder "Today page - encrypted handoff" (encrypted files only)
+      FOLDER_ID: ${{ vars.TODAY_DRIVE_FOLDER || '1fwNOGICDMRDH1nVyWT6SX6d4AACA1Pci' }}
     steps:
       - uses: actions/checkout@v4
 

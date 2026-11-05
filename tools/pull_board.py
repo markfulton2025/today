@@ -39,7 +39,13 @@ def list_folder(folder):
 def main(folder, target):
     if not folder:
         sys.exit("TODAY_DRIVE_FOLDER repo variable is not set")
-    files = {n: i for n, i in list_folder(folder).items() if re.fullmatch(r"enc-\d{12,14}\.json", n)}
+    try:
+        listing = list_folder(folder)
+    except Exception as e:
+        # Folder not shared yet or Drive hiccup: skip quietly, try again next run.
+        print(f"could not list folder: {e}")
+        return out(updated="false", stamp="")
+    files = {n: i for n, i in listing.items() if re.fullmatch(r"enc-\d{12,14}\.json", n)}
     if not files:
         print("no enc-*.json files in folder")
         return out(updated="false", stamp="")
