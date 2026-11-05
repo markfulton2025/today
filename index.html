@@ -89,6 +89,19 @@ textarea{width:100%;min-height:150px;resize:vertical;padding:12px;border:1px sol
 .empty{color:var(--muted)}
 .back{display:none}
 .mobile-top{display:none}
+.done-card{display:flex;align-items:center;gap:22px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 24px;box-shadow:var(--shadow);margin-bottom:22px}
+.done-card svg{flex:0 0 auto;width:190px;height:auto}
+.done-card h2{margin:0 0 6px;font-size:22px;letter-spacing:-.01em}
+.done-card .quip{margin:0 0 10px;color:var(--soft);font-size:15px;line-height:1.45}
+.done-card .tally{display:inline-block;background:var(--accent-soft);color:var(--accent-chip-ink);border:1px solid var(--accent-line);border-radius:999px;padding:4px 12px;font-size:13px;font-weight:600}
+.done-card .bob{animation:bob 3.2s ease-in-out infinite;transform-origin:center}
+.done-card .ray{animation:spin 18s linear infinite;transform-origin:150px 38px}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.mobile-done{display:none}
+.desk-only{display:block}
+@media (max-width: 760px){ .done-card{flex-direction:column;text-align:center;padding:18px 16px;margin:4px 16px 12px} .done-card svg{width:170px} .mobile-done{display:block} main .done-card{display:none} .desk-only{display:none} }
+@media (prefers-reduced-motion: reduce){ .done-card .bob,.done-card .ray{animation:none} }
 .err{color:var(--hot)}
 
 @media (max-width: 760px){
@@ -315,7 +328,7 @@ function renderTabs(){
 function nextOpen(afterKey){
   const logged = store();
   const open = ITEMS.filter(i => !i.fyi && !logged[i.key]);
-  if (!open.length) return ITEMS.length ? ITEMS[0].key : null;
+  if (!open.length) return null;
   if (!afterKey) return open[0].key;
   const idx = ITEMS.findIndex(i => i.key === afterKey);
   const later = ITEMS.slice(idx+1).find(i => !i.fyi && !logged[i.key]);
@@ -386,11 +399,50 @@ function listTopHTML(){
     return m ? `<div class="tophead"><div class="th-row"><span class="lbl">Optimal Blue ${esc(m.asOf||"")}</span></div><div class="rates">${(m.rates||[]).map(r => `<span><b>${esc(r.n)}</b> ${Number(r.v).toFixed(2)}%</span>`).join("")}</div><p class="note">Trigger: client rate ${esc(m.trigger||"0.75")}% or more above market.</p></div>` : ""; }
   return "";
 }
+const DONE_QUIPS = [
+  "The house is kicking back. You've earned the same.",
+  "Every follow-up handled. Pipedrive is speechless.",
+  "Board cleared. Somewhere a realtor just felt appreciated.",
+  "Nothing left to chase. Enjoy the rare air.",
+  "You out-followed-up the follow-ups.",
+  "Clean board. Go close something."
+];
+function doneArt(){
+  return `<svg viewBox="0 0 220 150" role="img" aria-label="A cartoon house in sunglasses relaxing in a beach chair with a lemonade">
+  <g class="ray" opacity=".9"><circle cx="150" cy="38" r="15" fill="#FBBF24"/>${[0,45,90,135,180,225,270,315].map(a=>`<line x1="150" y1="14" x2="150" y2="8" stroke="#FBBF24" stroke-width="3" stroke-linecap="round" transform="rotate(${a} 150 38)"/>`).join("")}</g>
+  <ellipse cx="100" cy="136" rx="78" ry="7" fill="#E2E8F0"/>
+  <g stroke="#94A3B8" stroke-width="4" stroke-linecap="round"><line x1="58" y1="134" x2="98" y2="100"/><line x1="140" y1="134" x2="104" y2="104"/><line x1="76" y1="134" x2="126" y2="110"/></g>
+  <path d="M56 104 L140 112 L132 126 L52 118 Z" fill="#C7D2FE"/><path d="M56 104 L140 112" stroke="#818CF8" stroke-width="3"/>
+  <g class="bob">
+    <rect x="66" y="62" width="62" height="50" rx="4" fill="#FFFFFF" stroke="#0F172A" stroke-width="3"/>
+    <path d="M58 66 L97 34 L136 66 Z" fill="#4F46E5" stroke="#0F172A" stroke-width="3" stroke-linejoin="round"/>
+    <rect x="114" y="38" width="9" height="18" fill="#4F46E5" stroke="#0F172A" stroke-width="3"/>
+    <rect x="73" y="73" width="20" height="11" rx="5" fill="#0F172A"/><rect x="101" y="73" width="20" height="11" rx="5" fill="#0F172A"/>
+    <line x1="93" y1="77" x2="101" y2="77" stroke="#0F172A" stroke-width="3"/>
+    <rect x="76" y="75" width="6" height="3" rx="1.5" fill="#FFFFFF" opacity=".6"/>
+    <path d="M84 94 Q97 104 110 94" fill="none" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+    <rect x="89" y="99" width="16" height="13" fill="#FDE68A" stroke="#0F172A" stroke-width="2"/>
+  </g>
+  <g transform="translate(150 88)">
+    <path d="M0 0 L22 0 L18 34 L4 34 Z" fill="#FEF3C7" stroke="#0F172A" stroke-width="2.5" stroke-linejoin="round"/>
+    <path d="M2 10 L20 10 L18 34 L4 34 Z" fill="#FDE047" opacity=".85"/>
+    <circle cx="20" cy="2" r="6" fill="#FACC15" stroke="#0F172A" stroke-width="2"/>
+    <line x1="14" y1="-12" x2="10" y2="20" stroke="#E11D48" stroke-width="2.5" stroke-linecap="round"/>
+  </g>
+  <path d="M128 92 Q142 86 150 92" fill="none" stroke="#0F172A" stroke-width="3" stroke-linecap="round"/>
+</svg>`;
+}
+function doneHTML(){
+  const w = winsNow();
+  const quip = DONE_QUIPS[new Date().getDate() % DONE_QUIPS.length];
+  const tally = w.today ? `🔥 ${w.today} sent today${w.streak > 1 ? ` · ${w.streak}-day streak` : ""}` : "New ones show up on the next refresh";
+  return `<div class="done-card">${doneArt()}<div><h2>All tasks completed. 🎉</h2><p class="quip">${esc(quip)}</p><span class="tally">${esc(tally)}</span></div></div>`;
+}
 function emptyHTML(){
   if (TAB === "agents") return `<div class="gh">All caught up</div><div class="pad empty">No agents due for a touch today. Nice!</div>`;
   if (TAB === "refi") return `<div class="gh">Nothing to chase</div><div class="pad empty">Nobody's over your refi trigger right now. When rates drop, they'll show up here.</div>`;
   if (DATA.weekday === false) return `<div class="gh">Weekend mode</div><div class="pad empty">Just your schedule and to-dos today. Enjoy it!</div>`;
-  return `<div class="gh">No follow-ups due</div><div class="pad empty">Everyone's been touched. Nice work!</div>`;
+  return `<div class="gh">All caught up</div><div class="pad empty desk-only">Nothing left on the board. 🎉</div><div class="mobile-done">${doneHTML()}</div>`;
 }
 
 function renderList(){
@@ -503,7 +555,7 @@ function renderDetail(){
   if (TAB === "score") { main.innerHTML = scoreHTML(); wireLeads(main); return; }
   const it = ITEMS.find(i => i.key === SEL);
   const side = TAB === "today" ? `<div class="hr"></div>` + sideHTML("desk") : "";
-  if (!it) { main.innerHTML = TAB === "today" ? sideHTML("desk") : `<div class="empty" style="padding-top:8px">${TAB==="refi"?"No refi candidates right now.":"No agents due today."}</div>`; wireBd(main); return; }
+  if (!it) { shell.classList.remove("detail"); main.innerHTML = TAB === "today" ? (DATA.weekday === false ? "" : doneHTML()) + sideHTML("desk") : `<div class="empty" style="padding-top:8px">${TAB==="refi"?"No refi candidates right now.":"No agents due today."}</div>`; wireBd(main); return; }
   const done = !!logged[it.key];
   const contact = it.phone ? fmt(it.phone) : (it.email || "");
   const backLbl = TAB === "agents" ? "‹ Agents" : TAB === "refi" ? "‹ Refi" : "‹ All follow-ups";
