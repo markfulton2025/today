@@ -65,6 +65,11 @@ textarea{width:100%;min-height:150px;resize:vertical;padding:12px;border:1px sol
 .btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
 .btn.log{margin-left:auto;background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent);font-weight:600}
 .btn.log[disabled]{cursor:default;opacity:.8}
+.mhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.seg{display:inline-flex;padding:3px;border-radius:9px;background:var(--line);gap:2px}
+.seg button{border:0;background:none;padding:5px 14px;border-radius:7px;color:var(--muted);font-weight:600;font-size:12.5px;cursor:pointer}
+.seg button.on{background:var(--panel);color:var(--accent);box-shadow:0 1px 2px rgba(15,23,42,.08)}
+.subj{width:100%;padding:10px 12px;border:1px solid var(--line2);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;font-size:14px;font-weight:600}
 .num{font-family:var(--mono);font-size:11.5px;color:var(--muted);user-select:all}
 .fyi-box{padding:12px 14px;border:1px dashed var(--line2);border-radius:10px;color:var(--muted)}
 .hr{height:1px;background:var(--line)}
@@ -509,8 +514,12 @@ function renderDetail(){
   if (it.fyi) {
     h += `<div class="fyi-box">Nothing to send right now. This one's just so you know.</div><div class="acts"><button type="button" class="btn log" id="skip">Next ›</button></div>`;
   } else {
-    h += `<label class="lbl" for="msg">Message</label><textarea id="msg">${esc(it.text)}</textarea>
-      <div class="acts"><a class="btn pri" id="send" href="#">${it.phone ? "Text " : "Email "}${esc(firstName(it.name))}</a>
+    const both = !!(it.phone && it.email), fn = esc(firstName(it.name));
+    if (!it.mode) it.mode = it.phone ? "text" : "email";
+    h += `<div class="mhead"><label class="lbl" for="msg">Message</label>${both ? `<div class="seg" role="tablist"><button type="button" data-m="text">Text</button><button type="button" data-m="email">Email</button></div>` : ""}</div>
+      <input id="subj" class="subj" type="text" placeholder="Subject" autocomplete="off">
+      <textarea id="msg"></textarea>
+      <div class="acts">${it.phone ? `<a class="btn" id="sendT" href="#">Text ${fn}</a>` : ""}${it.email ? `<a class="btn" id="sendE" href="#">Email ${fn}</a>` : ""}
       <button type="button" class="btn" id="copy">Copy</button>
       <button type="button" class="btn log" id="log" ${done?"disabled":""}>${done?"Logged in Pipedrive":"Sent, log it · next"}</button></div>`;
   }
@@ -528,13 +537,35 @@ function renderDetail(){
     catch(e) { xb.disabled = false; xb.classList.remove("arm"); xb.textContent = "Didn't go through, tap again"; }
   });
   if (it.fyi) { document.getElementById("skip").addEventListener("click", () => { SEL = nextOpen(it.key); renderList(); renderDetail(); }); return; }
-  const ta = document.getElementById("msg"), send = document.getElementById("send"), copy = document.getElementById("copy"), log = document.getElementById("log");
-  const upd = () => { send.href = it.phone ? `sms:+1${it.phone}?&body=${encodeURIComponent(ta.value)}` : `mailto:${it.email}?subject=${encodeURIComponent(it.subject||"")}&body=${encodeURIComponent(ta.value)}`; };
-  upd(); ta.addEventListener("input", () => { upd(); it.text = ta.value; });
+  const ta = document.getElementById("msg"), subj = document.getElementById("subj"), copy = document.getElementById("copy"), log = document.getElementById("log");
+  const sendT = document.getElementById("sendT"), sendE = document.getElementById("sendE");
+  if (it.emailText == null) it.emailText = it.phone ? (it.text || "") : (it.text || "");
+  if (it.emailSubject == null) it.emailSubject = it.subject || "";
+  const upd = () => {
+    if (sendT) sendT.href = `sms:+1${it.phone}?&body=${encodeURIComponent(it.text||"")}`;
+    if (sendE) sendE.href = `mailto:${it.email}?subject=${encodeURIComponent(it.emailSubject||"")}&body=${encodeURIComponent(it.emailText||"")}`;
+  };
+  const setMode = m => {
+    it.mode = m; const em = m === "email";
+    ta.value = em ? it.emailText : (it.text || "");
+    subj.value = it.emailSubject || ""; subj.style.display = em ? "" : "none";
+    main.querySelectorAll(".seg button").forEach(b => b.classList.toggle("on", b.dataset.m === m));
+    if (sendT) sendT.classList.toggle("pri", !em);
+    if (sendE) sendE.classList.toggle("pri", em);
+    upd();
+  };
+  main.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => setMode(b.dataset.m)));
+  ta.addEventListener("input", () => { if (it.mode === "email") it.emailText = ta.value; else it.text = ta.value; upd(); });
+  subj.addEventListener("input", () => { it.emailSubject = subj.value; upd(); });
+  if (sendT) sendT.addEventListener("click", () => { if (it.mode !== "text") setTimeout(() => setMode("text"), 0); });
+  if (sendE) sendE.addEventListener("click", () => { if (it.mode !== "email") setTimeout(() => setMode("email"), 0); });
+  setMode(it.mode);
   copy.addEventListener("click", () => {
     navigator.clipboard.writeText(ta.value).then(() => { copy.textContent="Copied"; setTimeout(()=>copy.textContent="Copy",1500); }).catch(() => { ta.focus(); ta.select(); });
   });
-  log.addEventListener("click", () => { if (!log.disabled) logSend(it, null, ta.value, log); });
+  log.addEventListener("click", () => { if (log.disabled) return;
+    const em = it.mode === "email";
+    logSend(it, it.flag==="bday" && !em ? null : (em ? "Email: " : "Text: "), em ? (it.emailSubject ? "Subject: "+it.emailSubject+"\n\n" : "")+it.emailText : (it.text||""), log); });
 }
 
 /* ---------- Leads section ---------- */
