@@ -27,8 +27,14 @@ def out(**kv):
     print(lines, end="")
 
 
+def note(msg):
+    # Public run annotation; never include file contents.
+    print(f"::notice::{msg}")
+
+
 def list_folder(folder):
     html = get(f"https://drive.google.com/embeddedfolderview?id={folder}#list").decode("utf-8", "replace")
+    note(f"folder view {len(html)} chars, file links {len(re.findall(r'/file/d/', html))}, titles {len(re.findall(r'flip-entry-title', html))}, entries {len(re.findall(r'id=\"entry-', html))}")
     # Each entry: <a href="https://drive.google.com/file/d/<ID>/view..."> ... <div class="flip-entry-title">NAME</div>
     files = {}
     for m in re.finditer(r'/file/d/([A-Za-z0-9_-]{20,})/.*?flip-entry-title">([^<]+)<', html, re.S):
@@ -43,11 +49,11 @@ def main(folder, target):
         listing = list_folder(folder)
     except Exception as e:
         # Folder not shared yet or Drive hiccup: skip quietly, try again next run.
-        print(f"could not list folder: {e}")
+        note(f"could not list folder: {e}")
         return out(updated="false", stamp="")
     files = {n: i for n, i in listing.items() if re.fullmatch(r"enc-\d{12,14}\.json", n)}
     if not files:
-        print("no enc-*.json files in folder")
+        note(f"no enc-*.json files matched; names seen: {sorted(listing)[:5]}")
         return out(updated="false", stamp="")
     newest = max(files)
     raw = get(f"https://drive.usercontent.google.com/download?id={files[newest]}&export=download")
@@ -61,7 +67,7 @@ def main(folder, target):
         except Exception:
             pass
     if str(env["stamp"]) <= str(cur):
-        print(f"{newest} stamp {env['stamp']} not newer than live {cur}")
+        note(f"{newest} stamp {env['stamp']} not newer than live {cur}")
         return out(updated="false", stamp=cur)
     with open(target, "w") as f:
         json.dump(env, f, separators=(",", ":"))
