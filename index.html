@@ -294,7 +294,7 @@ const STAGES = [
   ["Nurture", [[27,"Active Nurture"],[28,"Long-Term"],[30,"App 90 Day Nurture"],[33,"Refi Watch"],[31,"Graveyard"]]]
 ];
 const LOST_REASONS = ["Went with another lender","Not ready / bad timing","Didn't qualify","No response","Other"];
-const TABS = [["today","Today"],["agents","Agents"],["refi","Refi"],["score","<span class=\"lf\">Scoreboard</span><span class=\"ls\">Score</span>"]];
+const TABS = [["today","Today"],["agents","Agents"],["los","LOs"],["refi","Refi"],["score","<span class=\"lf\">Scoreboard</span><span class=\"ls\">Score</span>"]];
 let TAB = (() => { try { const t = localStorage.getItem("today-tab"); return TABS.some(x=>x[0]===t) ? t : "today"; } catch(e){ return "today"; } })();
 const tabOf = g => g.tab || "today";
 let ALLGROUPS = [];
@@ -350,6 +350,11 @@ function agentWeekNow(){
   const agentKeys = new Set(ALLGROUPS.filter(g => tabOf(g)==="agents").flatMap(g => g.items.map(i => i.key)));
   return { goal: a.goal || 7, count: (a.count||0) + localSince(k => agentKeys.has(k)), names: a.names || [] };
 }
+function loWeekNow(){
+  const a = DATA.loWeek || {goal:5, count:0, names:[]};
+  const loKeys = new Set(ALLGROUPS.filter(g => tabOf(g)==="los").flatMap(g => g.items.map(i => i.key)));
+  return { goal: a.goal || 5, count: (a.count||0) + localSince(k => loKeys.has(k)), names: a.names || [] };
+}
 function renderMeta(){
   const w = winsNow();
   const fire = w.today ? `🔥 ${w.today} sent today` : "0 sent today";
@@ -395,6 +400,8 @@ function listTopHTML(){
   if (TAB === "today") return `<div class="mobile-top">${sideHTML("")}</div>`;
   if (TAB === "agents") { const a = agentWeekNow();
     return `<div class="tophead"><div class="th-row"><span class="lbl">Agent touches this week</span><span class="th-num">${a.count} / ${a.goal}</span></div>${barHTML(a.count, a.goal)}<p class="note">${a.count >= a.goal ? "Goal hit! Anything extra is gravy." : "Calls, texts and notes on your Realtor Partners count."}</p></div>`; }
+  if (TAB === "los") { const a = loWeekNow();
+    return `<div class="tophead"><div class="th-row"><span class="lbl">LO check-ins this week</span><span class="th-num">${a.count} / ${a.goal}</span></div>${barHTML(a.count, a.goal)}<p class="note">${a.count >= a.goal ? "Goal hit! Your team feels the love." : "Calls, texts and notes on your TLC loan officers count."}</p></div>`; }
   if (TAB === "refi") { const m = DATA.market;
     return m ? `<div class="tophead"><div class="th-row"><span class="lbl">Optimal Blue ${esc(m.asOf||"")}</span></div><div class="rates">${(m.rates||[]).map(r => `<span><b>${esc(r.n)}</b> ${Number(r.v).toFixed(2)}%</span>`).join("")}</div><p class="note">Trigger: client rate ${esc(m.trigger||"0.75")}% or more above market.</p></div>` : ""; }
   return "";
@@ -440,6 +447,7 @@ function doneHTML(){
 }
 function emptyHTML(){
   if (TAB === "agents") return `<div class="gh">All caught up</div><div class="pad empty">No agents due for a touch today. Nice!</div>`;
+  if (TAB === "los") return `<div class="gh">All caught up</div><div class="pad empty">No LOs due for a check-in today. Team's in good hands!</div>`;
   if (TAB === "refi") return `<div class="gh">Nothing to chase</div><div class="pad empty">Nobody's over your refi trigger right now. When rates drop, they'll show up here.</div>`;
   if (DATA.weekday === false) return `<div class="gh">Weekend mode</div><div class="pad empty">Just your schedule and to-dos today. Enjoy it!</div>`;
   return `<div class="gh">All caught up</div><div class="pad empty desk-only">Nothing left on the board. 🎉</div><div class="mobile-done">${doneHTML()}</div>`;
@@ -473,7 +481,7 @@ function renderList(){
 }
 
 function scoreHTML(){
-  const w = winsNow(), a = agentWeekNow();
+  const w = winsNow(), a = agentWeekNow(), lo = loWeekNow();
   return `<div class="dh"><div><h2>Scoreboard</h2><div class="info">How the week is going</div></div></div>
   <div class="kpis">
     <div class="kpi"><div class="k">Sent today</div><div class="v">${w.today ? "🔥 " : ""}${w.today}</div><div class="s">texts and calls logged from the board</div></div>
@@ -483,6 +491,9 @@ function scoreHTML(){
   <section><h3 class="lbl">Agent touches this week</h3>
     <div class="kpi"><div class="v">${a.count} <span class="s">/ ${a.goal}</span></div>${barHTML(a.count, a.goal)}
     <div class="s" style="margin-top:8px">${a.names.length ? esc(a.names.join(", ")) : "No realtor touches logged yet this week."}</div></div></section>
+  <section><h3 class="lbl">LO check-ins this week</h3>
+    <div class="kpi"><div class="v">${lo.count} <span class="s">/ ${lo.goal}</span></div>${barHTML(lo.count, lo.goal)}
+    <div class="s" style="margin-top:8px">${lo.names.length ? esc(lo.names.join(", ")) : "No LO check-ins logged yet this week."}</div></div></section>
   <div class="hr"></div>` + leadsHTML().replace('<div class="dh"><div><h2>', '<div class="dh"><div><h2 style="font-size:16px">');
 }
 
@@ -555,10 +566,10 @@ function renderDetail(){
   if (TAB === "score") { main.innerHTML = scoreHTML(); wireLeads(main); return; }
   const it = ITEMS.find(i => i.key === SEL);
   const side = TAB === "today" ? `<div class="hr"></div>` + sideHTML("desk") : "";
-  if (!it) { shell.classList.remove("detail"); main.innerHTML = TAB === "today" ? (DATA.weekday === false ? "" : doneHTML()) + sideHTML("desk") : `<div class="empty" style="padding-top:8px">${TAB==="refi"?"No refi candidates right now.":"No agents due today."}</div>`; wireBd(main); return; }
+  if (!it) { shell.classList.remove("detail"); main.innerHTML = TAB === "today" ? (DATA.weekday === false ? "" : doneHTML()) + sideHTML("desk") : `<div class="empty" style="padding-top:8px">${TAB==="refi"?"No refi candidates right now.":TAB==="los"?"No LOs due today.":"No agents due today."}</div>`; wireBd(main); return; }
   const done = !!logged[it.key];
   const contact = it.phone ? fmt(it.phone) : (it.email || "");
-  const backLbl = TAB === "agents" ? "‹ Agents" : TAB === "refi" ? "‹ Refi" : "‹ All follow-ups";
+  const backLbl = TAB === "agents" ? "‹ Agents" : TAB === "los" ? "‹ LOs" : TAB === "refi" ? "‹ Refi" : "‹ All follow-ups";
   let h = `<button type="button" class="back" id="back">${backLbl}</button>
     <div class="dh"><div><h2>${esc(it.name)}</h2><div class="info">${esc([contact, it.stage, it.group].filter(Boolean).join(" · "))}</div></div>
     <span class="right"><span class="pill ${it.flag==="hot"?"hot":""}">${esc(it.why)}</span><button type="button" class="xbtn" id="dismiss" title="Remove from board">✕ Remove</button></span></div>
